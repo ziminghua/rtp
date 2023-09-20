@@ -37,36 +37,19 @@ const (
 func annexbNALUStartCode() []byte { return []byte{0x00, 0x00, 0x00, 0x01} }
 
 func emitNalus(nals []byte, emit func([]byte)) {
-	nextInd := func(nalu []byte, start int) (indStart int, indLen int) {
-		zeroCount := 0
+	start := 0
+	length := len(nals)
 
-		for i, b := range nalu[start:] {
-			if b == 0 {
-				zeroCount++
-				continue
-			} else if b == 1 {
-				if zeroCount >= 2 {
-					return start + i - zeroCount, zeroCount + 1
-				}
-			}
-			zeroCount = 0
-		}
-		return -1, -1
-	}
+	for start < length {
+		end := bytes.Index(nals[start:], []byte{0, 0, 1})
+		if end == -1 {
+			emit(nals[start:])
+			break
+		} else {
+			emit(nals[start : start+end])
 
-	nextIndStart, nextIndLen := nextInd(nals, 0)
-	if nextIndStart == -1 {
-		emit(nals)
-	} else {
-		for nextIndStart != -1 {
-			prevStart := nextIndStart + nextIndLen
-			nextIndStart, nextIndLen = nextInd(nals, prevStart)
-			if nextIndStart != -1 {
-				emit(nals[prevStart:nextIndStart])
-			} else {
-				// Emit until end of stream, no end indicator found
-				emit(nals[prevStart:])
-			}
+			// next NAL start position
+			start += end + 3
 		}
 	}
 }
